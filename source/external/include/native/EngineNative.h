@@ -2,6 +2,7 @@
 #define ENGINE_NATIVE_H
 
 #include <hxcpp.h>
+#include <haxe/io/Bytes.h>
 
 /**
  * Nucleo C++ nativo del motor.
@@ -31,6 +32,18 @@ public:
 
 	/** CRC32 del contenido de un archivo. Devuelve -1 si no se puede abrir. */
 	static int crc32File(::String path);
+
+	/**
+	 * Amplitud de varias ventanas de un PCM ya decodificado.
+	 *
+	 * `pcm` es el buffer crudo (16/8/24/32 bits, little endian, entrelazado),
+	 * `startFrames`/`endFrames` son indices de frame (no de byte). Devuelve una
+	 * amplitud por ventana, en el mismo orden, con el mismo criterio que
+	 * `AudioAnalyzer.analyze`: (max - min) / (1 << (bits-1)).
+	 * Una ventana sin muestras (o un PCM invalido) devuelve 0.
+	 */
+	static ::Array<Float> audioAmplitudes(::haxe::io::Bytes pcm, int bitsPerSample, int channels,
+		::Array<int> startFrames, ::Array<int> endFrames);
 };
 
 #endif

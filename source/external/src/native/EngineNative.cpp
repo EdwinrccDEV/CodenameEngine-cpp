@@ -130,7 +130,7 @@ namespace
 
 ::String EngineNative::version()
 {
-	return ::String("1.0.0");
+	return ::String("1.1.0");
 }
 
 ::Array< ::String> EngineNative::scanDir(::String path, bool recursive)
@@ -143,6 +143,84 @@ namespace
 	result->reserve((int)files.size());
 	for (size_t i = 0; i < files.size(); ++i)
 		result->push(::String(files[i].c_str()));
+
+	return result;
+}
+
+/** Lee una muestra little endian de tamano variable. */
+static int readSample(const unsigned char *data, int pos, int bytesPerSample)
+{
+	switch (bytesPerSample)
+	{
+		case 1:
+			return (int)(signed char)data[pos];
+		case 2:
+			return (int)(short)((unsigned short)data[pos] | ((unsigned short)data[pos + 1] << 8));
+		case 3:
+		{
+			int value = (int)((unsigned int)data[pos] | ((unsigned int)data[pos + 1] << 8) | ((unsigned int)data[pos + 2] << 16));
+			if ((value & 0x800000) != 0) value -= 0x1000000;
+			return value;
+		}
+		default:
+			return (int)((unsigned int)data[pos] | ((unsigned int)data[pos + 1] << 8) | ((unsigned int)data[pos + 2] << 16)
+				| ((unsigned int)data[pos + 3] << 24));
+	}
+}
+
+::Array<Float> EngineNative::audioAmplitudes(::haxe::io::Bytes pcm, int bitsPerSample, int channels,
+	::Array<int> startFrames, ::Array<int> endFrames)
+{
+	const int count = startFrames == nullptr ? 0 : startFrames->length;
+	::Array<Float> result = Array_obj<Float>::__new();
+	result->reserve(count);
+
+	const int bytesPerSample = bitsPerSample >> 3;
+	const int frameSize = bytesPerSample * channels;
+	const bool valid = pcm != nullptr && pcm->b != nullptr && bitsPerSample > 0 && (bitsPerSample & 7) == 0
+		&& channels > 0 && endFrames != nullptr && endFrames->length >= count;
+
+	const unsigned char *data = valid ? (const unsigned char *)pcm->b->getBase() : nullptr;
+	const int pcmLength = valid ? (int)pcm->b->length : 0;
+	// Cast sin signo para que 32 bits de 2147483648 y no un negativo.
+	const double scale = valid ? 1.0 / (double)((unsigned int)1 << (bitsPerSample - 1)) : 0.0;
+
+	for (int i = 0; i < count; ++i)
+	{
+		if (!valid)
+		{
+			result->push(0.0);
+			continue;
+		}
+
+		// Los indices son frames: se convierten a bytes de PCM.
+		const int start = (int)startFrames->__get(i) * frameSize;
+		int end = (int)endFrames->__get(i) * frameSize;
+		if (end > pcmLength) end = pcmLength;
+
+		int highest = 0, lowest = 0;
+		bool any = false;
+		int pos = start;
+
+		while (pos + bytesPerSample <= end)
+		{
+			const int value = readSample(data, pos, bytesPerSample);
+			if (!any)
+			{
+				highest = lowest = value;
+				any = true;
+			}
+			else
+			{
+				if (value > highest) highest = value;
+				if (value < lowest) lowest = value;
+			}
+
+			pos += frameSize;
+		}
+
+		result->push(any ? (Float)((highest - lowest) * scale) : 0.0);
+	}
 
 	return result;
 }

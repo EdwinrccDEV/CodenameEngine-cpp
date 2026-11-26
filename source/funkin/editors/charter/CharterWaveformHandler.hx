@@ -41,23 +41,39 @@ class CharterWaveformHandler extends FlxBasic {
 			ampSqrt, 1+Math.floor(pixelsNeeded/ampSqrt), true, 0xFF000000
 		);
 
-		for (y in 0...waveData.height)
-			for (x in 0...waveData.width) {
-				var amplitudes:Array<Float> = [0., 0., 0.];
-				for (color in 0...3) {
-					var gridY:Float = (y * (waveData.width * 3)) + (x * 3) + color;
+		// Se piden todas las ventanas juntas: en cpp el modulo nativo recorre el PCM
+		// una sola vez, en vez de un callback de Haxe por muestra y por ventana.
+		var cells:Int = waveData.width * waveData.height * 3;
+		var sampleRate:Int = analyzer.data != null ? analyzer.data.sampleRate : 0;
+		var startFrames:Array<Int> = [], endFrames:Array<Int> = [];
 
-					var startTime:Float = Conductor.getTimeForStep(gridY/40);
-					if (startTime > sound.length) if (color == 0) break; else continue;
+		for (gridY in 0...cells) {
+			var startTime:Float = Conductor.getTimeForStep(gridY/40);
+			var endTime:Float = Conductor.getTimeForStep((gridY+1)/40);
 
-					var endTime:Float = Conductor.getTimeForStep((gridY+1)/40);
-					if (endTime > sound.length) if (color == 0) break; else continue;
-
-					var amplitude:Float = analyzer.analyze(startTime, endTime);
-					amplitudes[color] = amplitude;
-				}
-				waveData.setPixel(x, y, FlxColor.fromRGBFloat(amplitudes[0], amplitudes[1], amplitudes[2]));
+			if (sampleRate <= 0 || startTime > sound.length || endTime > sound.length) {
+				// Fuera de la cancion: queda en negro, igual que antes.
+				startFrames.push(0);
+				endFrames.push(0);
+			} else {
+				startFrames.push(Math.floor(startTime * sampleRate / 1000));
+				endFrames.push(Math.floor(endTime * sampleRate / 1000));
 			}
+		}
+
+		var amplitudes:Array<Float> = analyzer.analyzeRanges(startFrames, endFrames);
+		var cell:Int = 0;
+
+		if (amplitudes != null && amplitudes.length >= cells * 3) {
+			for (y in 0...waveData.height)
+				for (x in 0...waveData.width) {
+					waveData.setPixel(x, y, FlxColor.fromRGBFloat(
+						CoolUtil.bound(amplitudes[cell * 3], 0, 1),
+						CoolUtil.bound(amplitudes[cell * 3 + 1], 0, 1),
+						CoolUtil.bound(amplitudes[cell * 3 + 2], 0, 1)));
+					cell++;
+				}
+		}
 
 		waveDatas.set(name, waveData);
 		return waveData;

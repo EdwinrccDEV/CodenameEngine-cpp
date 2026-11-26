@@ -487,6 +487,43 @@ final class AudioAnalyzer {
 	function _analyzeRead(b:Int, c:Int) ((b > _maxs[c]) ? (_maxs[c] = b) : (if (-b > _mins[c]) (_mins[c] = -b)));
 
 	/**
+	 * Analiza varias ventanas de una vez y devuelve una amplitud por ventana.
+	 * `startFrames`/`endFrames` son indices de frame (no de byte) y el resultado
+	 * equivale a llamar `analyze` ventana por ventana.
+	 *
+	 * En cpp lo resuelve el modulo nativo en un solo recorrido del PCM; si el
+	 * sonido no tiene PCM en RAM (streaming) o el target no es cpp, cae en
+	 * `analyze`, o sea el mismo camino de siempre.
+	 */
+	public function analyzeRanges(startFrames:Array<Int>, endFrames:Array<Int>):Array<Float> {
+		_check();
+		if (data == null || startFrames == null || endFrames == null) return null;
+
+		#if cpp
+		var pcm = _pcmBytes();
+		if (pcm != null) return NativeOps.audioAmplitudes(pcm, data.bitsPerSample, data.channels, startFrames, endFrames);
+		#end
+
+		var out:Array<Float> = [];
+		for (i in 0...startFrames.length) out.push(analyze(startFrames[i], endFrames[i], SAMPLE));
+		return out;
+	}
+
+	#if cpp
+	/** PCM en RAM del sonido, o null si es streaming o no se puede acceder. */
+	function _pcmBytes():haxe.io.Bytes {
+		if (data == null || data.buffer == null || data.buffer.data == null) return null;
+
+		// `AudioBuffer.data` es un UInt8Array; su ArrayBuffer es un haxe.io.Bytes.
+		var samples = data.buffer.data;
+		if (samples.byteOffset != 0) return null;
+
+		var pcm:haxe.io.Bytes = samples.buffer;
+		return Std.isOfType(pcm, haxe.io.Bytes) ? pcm : null;
+	}
+	#end
+
+	/**
 	 * Gets samples from startPos with given length of samples.
 	 * @param	startPos		Start Position to get.
 	 * @param	timeUnit		TimeUnit to use for positions.

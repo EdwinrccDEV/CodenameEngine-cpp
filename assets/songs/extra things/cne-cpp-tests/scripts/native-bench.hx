@@ -58,6 +58,9 @@ function postCreate() {
 		+ nativeMs(haxeAvg / (nativeAvg <= 0 ? 1 : nativeAvg)) + "x");
 
 	nativeBenchCrc("assets/songs/extra things/cne-cpp-tests/song/inst.ogg");
+
+	try nativeBenchWaveform()
+	catch (e:Dynamic) trace("[native] waveform: no se pudo medir (" + Std.string(e) + ")");
 }
 
 function nativeBenchCrc(path:String) {
@@ -74,6 +77,66 @@ function nativeBenchCrc(path:String) {
 
 	trace("[native] crc32 " + nativeMs(size / 1048576) + " MB: " + nativeMs(ms) + " ms ("
 		+ nativeMs(mbps) + " MB/s) -> " + crc);
+}
+
+/**
+ * Amplitudes de waveform: modulo nativo vs implementacion Haxe, sobre el mismo
+ * PCM sintetico (2 s, 16 bits, estereo, 44.1 kHz).
+ * El editor de charts usa esto para dibujar las waveforms.
+ */
+function nativeBenchWaveform() {
+	var sampleRate:Int = 44100;
+	var frames:Int = sampleRate * 2;
+	var channels:Int = 2;
+	var pcm:haxe.io.Bytes = haxe.io.Bytes.alloc(frames * channels * 2);
+
+	for (i in 0...frames) {
+		var value:Int = Math.round(Math.sin(i * 0.02) * 16000);
+		var low:Int = value & 0xFF;
+		var high:Int = (value >> 8) & 0xFF;
+
+		for (c in 0...channels) {
+			pcm.set((i * channels + c) * 2, low);
+			pcm.set((i * channels + c) * 2 + 1, high);
+		}
+	}
+
+	// Ventanas de 1 ms, como las columnas del grid del editor.
+	var windowFrames:Int = Std.int(sampleRate / 1000);
+	var count:Int = Std.int(frames / windowFrames);
+	var starts:Array<Int> = [], ends:Array<Int> = [];
+
+	for (i in 0...count) {
+		starts.push(i * windowFrames);
+		ends.push((i + 1) * windowFrames);
+	}
+
+	var rounds:Int = 20;
+	var nativeTotal:Float = 0;
+	var haxeTotal:Float = 0;
+	var nativeAmps:Array<Float> = null;
+	var haxeAmps:Array<Float> = null;
+
+	for (r in 0...rounds) {
+		var t:Float = haxe.Timer.stamp();
+		nativeAmps = NativeOps.audioAmplitudes(pcm, 16, channels, starts, ends);
+		nativeTotal += haxe.Timer.stamp() - t;
+
+		t = haxe.Timer.stamp();
+		haxeAmps = NativeOps.audioAmplitudesHaxe(pcm, 16, channels, starts, ends);
+		haxeTotal += haxe.Timer.stamp() - t;
+	}
+
+	var mismatch:Int = 0;
+	for (i in 0...nativeAmps.length)
+		if (Math.abs(nativeAmps[i] - haxeAmps[i]) > 0.0001) mismatch++;
+
+	var nativeAvg:Float = nativeTotal * 1000 / rounds;
+	var haxeAvg:Float = haxeTotal * 1000 / rounds;
+
+	trace("[native] waveform " + count + " ventanas: nativo " + nativeMs(nativeAvg) + " ms | haxe "
+		+ nativeMs(haxeAvg) + " ms | " + nativeMs(haxeAvg / (nativeAvg <= 0 ? 1 : nativeAvg)) + "x | "
+		+ (mismatch == 0 ? "amplitudes coinciden" : mismatch + " DIFERENCIAS"));
 }
 
 /** La misma implementacion Haxe que usa NativeOps cuando no hay C++. */

@@ -32,5 +32,14 @@ class ExternalNative
 	{
 		return untyped __cpp__("EngineNative::crc32File({0})", path);
 	}
+
+	/**
+	 * Amplitudes de ventanas sobre un PCM ya decodificado.
+	 * `startFrames`/`endFrames` son indices de frame, no de byte.
+	 */
+	public static function audioAmplitudes(pcm:haxe.io.Bytes, bitsPerSample:Int, channels:Int, startFrames:Array<Int>, endFrames:Array<Int>):Array<Float>
+	{
+		return untyped __cpp__("EngineNative::audioAmplitudes({0}, {1}, {2}, {3}, {4})", pcm, bitsPerSample, channels, startFrames, endFrames);
+	}
 }
 #end
