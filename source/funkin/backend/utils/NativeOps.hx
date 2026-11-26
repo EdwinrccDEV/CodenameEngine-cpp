@@ -100,7 +100,7 @@ class NativeOps
 	public static function audioAmplitudes(pcm:haxe.io.Bytes, bitsPerSample:Int, channels:Int, startFrames:Array<Int>, endFrames:Array<Int>):Array<Float>
 	{
 		#if cpp
-		return ExternalNative.audioAmplitudes(pcm, bitsPerSample, channels, startFrames, endFrames);
+		return ExternalNative.audioAmplitudes(pcm.getData(), bitsPerSample, channels, startFrames, endFrames);
 		#else
 		return audioAmplitudesHaxe(pcm, bitsPerSample, channels, startFrames, endFrames);
 		#end

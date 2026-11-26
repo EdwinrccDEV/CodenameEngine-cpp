@@ -36,8 +36,13 @@ class ExternalNative
 	/**
 	 * Amplitudes de ventanas sobre un PCM ya decodificado.
 	 * `startFrames`/`endFrames` son indices de frame, no de byte.
+	 *
+	 * El buffer va como `haxe.io.BytesData` (no `haxe.io.Bytes`) porque el C++
+	 * no tiene en su include path los headers generados por hxcpp
+	 * (`haxe/io/Bytes.h`); `BytesData` es `::Array<unsigned char>` y ya viene
+	 * declarado en `hxcpp.h`.
 	 */
-	public static function audioAmplitudes(pcm:haxe.io.Bytes, bitsPerSample:Int, channels:Int, startFrames:Array<Int>, endFrames:Array<Int>):Array<Float>
+	public static function audioAmplitudes(pcm:haxe.io.BytesData, bitsPerSample:Int, channels:Int, startFrames:Array<Int>, endFrames:Array<Int>):Array<Float>
 	{
 		return untyped __cpp__("EngineNative::audioAmplitudes({0}, {1}, {2}, {3}, {4})", pcm, bitsPerSample, channels, startFrames, endFrames);
 	}

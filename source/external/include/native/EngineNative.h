@@ -2,7 +2,6 @@
 #define ENGINE_NATIVE_H
 
 #include <hxcpp.h>
-#include <haxe/io/Bytes.h>
 
 /**
  * Nucleo C++ nativo del motor.
@@ -36,13 +35,16 @@ public:
 	/**
 	 * Amplitud de varias ventanas de un PCM ya decodificado.
 	 *
-	 * `pcm` es el buffer crudo (16/8/24/32 bits, little endian, entrelazado),
+	 * `pcm` es el buffer crudo (16/8/24/32 bits, little endian, entrelazado) y
+	 * llega como `haxe.io.BytesData` (`::Array<unsigned char>`): el grupo
+	 * `external-native` no tiene en el include path los headers que hxcpp genera
+	 * (por eso no se puede declarar `::haxe::io::Bytes` aca),
 	 * `startFrames`/`endFrames` son indices de frame (no de byte). Devuelve una
 	 * amplitud por ventana, en el mismo orden, con el mismo criterio que
 	 * `AudioAnalyzer.analyze`: (max - min) / (1 << (bits-1)).
 	 * Una ventana sin muestras (o un PCM invalido) devuelve 0.
 	 */
-	static ::Array<Float> audioAmplitudes(::haxe::io::Bytes pcm, int bitsPerSample, int channels,
+	static ::Array<Float> audioAmplitudes(::Array<unsigned char> pcm, int bitsPerSample, int channels,
 		::Array<int> startFrames, ::Array<int> endFrames);
 };
 

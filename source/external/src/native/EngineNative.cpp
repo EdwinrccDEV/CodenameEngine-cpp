@@ -130,7 +130,7 @@ namespace
 
 ::String EngineNative::version()
 {
-	return ::String("1.1.0");
+	return ::String("1.1.1");
 }
 
 ::Array< ::String> EngineNative::scanDir(::String path, bool recursive)
@@ -168,7 +168,7 @@ static int readSample(const unsigned char *data, int pos, int bytesPerSample)
 	}
 }
 
-::Array<Float> EngineNative::audioAmplitudes(::haxe::io::Bytes pcm, int bitsPerSample, int channels,
+::Array<Float> EngineNative::audioAmplitudes(::Array<unsigned char> pcm, int bitsPerSample, int channels,
 	::Array<int> startFrames, ::Array<int> endFrames)
 {
 	const int count = startFrames == nullptr ? 0 : startFrames->length;
@@ -177,11 +177,11 @@ static int readSample(const unsigned char *data, int pos, int bytesPerSample)
 
 	const int bytesPerSample = bitsPerSample >> 3;
 	const int frameSize = bytesPerSample * channels;
-	const bool valid = pcm != nullptr && pcm->b != nullptr && bitsPerSample > 0 && (bitsPerSample & 7) == 0
+	const bool valid = pcm != nullptr && bitsPerSample > 0 && (bitsPerSample & 7) == 0
 		&& channels > 0 && endFrames != nullptr && endFrames->length >= count;
 
-	const unsigned char *data = valid ? (const unsigned char *)pcm->b->getBase() : nullptr;
-	const int pcmLength = valid ? (int)pcm->b->length : 0;
+	const unsigned char *data = valid ? (const unsigned char *)pcm->getBase() : nullptr;
+	const int pcmLength = valid ? (int)pcm->length : 0;
 	// Cast sin signo para que 32 bits de 2147483648 y no un negativo.
 	const double scale = valid ? 1.0 / (double)((unsigned int)1 << (bitsPerSample - 1)) : 0.0;
 
