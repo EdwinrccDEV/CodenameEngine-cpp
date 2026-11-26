@@ -1,0 +1,16 @@
+{
+	"opponentModeAllowed": true,
+	"icon": "compotahyperlol",
+	"difficulties": [
+		"easy",
+		"normal",
+		"pulento"
+	],
+	"color": "#000000",
+	"coopAllowed": true,
+	"stepsPerBeat": 4,
+	"displayName": "Alerta de Epilepsia",
+	"needsVoices": true,
+	"beatsPerMeasure": 4,
+	"bpm": 174
+}

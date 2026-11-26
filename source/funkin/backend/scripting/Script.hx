@@ -221,6 +221,7 @@ class Script extends FlxBasic implements IFlxDestroyable
 		"hscript",
 		"hsc",
 		"hxs",
+		"cpp", // C++ subset, transpiled to HScript by CPPScript
 		"pack", // combined file
 		"lua" /** ACTUALLY NOT SUPPORTED, ONLY FOR THE MESSAGE **/];
 
@@ -273,6 +274,8 @@ class Script extends FlxBasic implements IFlxDestroyable
 			{
 				case "hx" | "hscript" | "hsc" | "hxs":
 					new HScript(path);
+				case "cpp":
+					new CPPScript(path);
 				case "pack":
 					var arr = Assets.getText(path).split("________PACKSEP________");
 					fromString(arr[1], arr[0]);
@@ -297,6 +300,8 @@ class Script extends FlxBasic implements IFlxDestroyable
 		{
 			case "hx" | "hscript" | "hsc" | "hxs":
 				new HScript(path).loadFromString(code);
+			case "cpp":
+				new CPPScript(path).loadFromString(code);
 			case "lua":
 				Logs.error("Lua is not supported in this engine. Use HScript instead.");
 				new DummyScript(path).loadFromString(code);
