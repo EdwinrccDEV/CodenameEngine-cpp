@@ -166,6 +166,7 @@ class Chart {
 	}
 
 	public static function parse(songName:String, ?difficulty:String, ?variant:String):ChartData {
+		var __loadStart:Float = haxe.Timer.stamp();
 		if (difficulty == null) difficulty = Flags.DEFAULT_DIFFICULTY;
 
 		var chartPath = Paths.chart(songName, difficulty, variant);
@@ -247,6 +248,11 @@ class Chart {
 			if(strumLine.keyCount == null)
 				strumLine.keyCount = 4;
 		}
+
+		var __loadMs:Float = (haxe.Timer.stamp() - __loadStart) * 1000;
+		var __loadNotes:Int = 0;
+		for (__strumLine in base.strumLines) if (__strumLine != null && __strumLine.notes != null) __loadNotes += __strumLine.notes.length;
+		Logs.infos('[load] chart "$namePrint": ${Std.int(__loadMs)} ms, $__loadNotes notes', CYAN);
 
 		return base;
 	}

@@ -3,6 +3,8 @@ package funkin.game;
 import flixel.math.FlxPoint;
 import flixel.math.FlxAngle;
 import flixel.math.FlxRect;
+import flixel.graphics.frames.FlxFrame;
+import flixel.graphics.frames.FlxFramesCollection;
 import funkin.backend.chart.ChartData;
 import funkin.backend.scripting.events.note.NoteCreationEvent;
 import funkin.backend.system.Conductor;
@@ -113,6 +115,50 @@ class Note extends FlxSprite
 
 	private static var __customNoteTypeExists:Map<String, Bool> = [];
 
+	/**
+	 * Indices de frames por atlas + prefijo.
+	 *
+	 * `animation.addByPrefix` recorre TODO el atlas de la nota (y arma arrays nuevos)
+	 * cada vez que se crea una nota; en canciones de miles de notas eso se paga al
+	 * cargar. Como los indices solo dependen del atlas, se calculan una vez.
+	 */
+	private static var __animFrameIndices:Map<FlxFramesCollection, Map<String, Array<Int>>> = [];
+	private static var __animFrameIndicesCount:Int = 0;
+
+	private static function __prefixFrameIndices(frameSet:FlxFramesCollection, prefix:String):Array<Int> {
+		var cache:Map<String, Array<Int>> = __animFrameIndices.get(frameSet);
+		if (cache == null) {
+			// tope para no retener atlases para siempre si un mod carga muchisimos tipos de nota
+			if (__animFrameIndicesCount >= 32) {
+				__animFrameIndices.clear();
+				__animFrameIndicesCount = 0;
+			}
+			cache = [];
+			__animFrameIndices.set(frameSet, cache);
+			__animFrameIndicesCount++;
+		}
+
+		var indices:Array<Int> = cache.get(prefix);
+		if (indices != null) return indices;
+
+		indices = [];
+		var all:Array<FlxFrame> = frameSet.frames;
+		for (i in 0...all.length) {
+			var frame:FlxFrame = all[i];
+			if (frame.name != null && frame.name.startsWith(prefix)) indices.push(i);
+		}
+		cache.set(prefix, indices);
+		return indices;
+	}
+
+	/** Agrega la animacion `name` (frames que empiezan con `prefix`), reusando los indices cacheados. */
+	private static function __addAnim(sprite:FlxSprite, name:String, frameSet:FlxFramesCollection, prefix:String):Bool {
+		var indices:Array<Int> = __prefixFrameIndices(frameSet, prefix);
+		if (indices.length == 0) return false;
+		sprite.animation.add(name, indices, 30, true);
+		return true;
+	}
+
 	public var animSuffix:String = null;
 
 	// Deprecated?
@@ -172,23 +218,22 @@ class Note extends FlxSprite
 
 					switch(event.strumID % 4) {
 						case 0:
-							animation.addByPrefix('scroll', 'purple0');
-							animation.addByPrefix('hold', 'purple hold piece');
-							animation.addByPrefix("holdend", "pruple end hold");
-							if (animation.exists("holdend") != true) // null or false
-								animation.addByPrefix('holdend', 'purple hold end');
+							__addAnim(this, 'scroll', frames, 'purple0');
+							__addAnim(this, 'hold', frames, 'purple hold piece');
+							if (!__addAnim(this, 'holdend', frames, 'pruple end hold'))
+								__addAnim(this, 'holdend', frames, 'purple hold end');
 						case 1:
-							animation.addByPrefix('scroll', 'blue0');
-							animation.addByPrefix('hold', 'blue hold piece');
-							animation.addByPrefix('holdend', 'blue hold end');
+							__addAnim(this, 'scroll', frames, 'blue0');
+							__addAnim(this, 'hold', frames, 'blue hold piece');
+							__addAnim(this, 'holdend', frames, 'blue hold end');
 						case 2:
-							animation.addByPrefix('scroll', 'green0');
-							animation.addByPrefix('hold', 'green hold piece');
-							animation.addByPrefix('holdend', 'green hold end');
+							__addAnim(this, 'scroll', frames, 'green0');
+							__addAnim(this, 'hold', frames, 'green hold piece');
+							__addAnim(this, 'holdend', frames, 'green hold end');
 						case 3:
-							animation.addByPrefix('scroll', 'red0');
-							animation.addByPrefix('hold', 'red hold piece');
-							animation.addByPrefix('holdend', 'red hold end');
+							__addAnim(this, 'scroll', frames, 'red0');
+							__addAnim(this, 'hold', frames, 'red hold piece');
+							__addAnim(this, 'holdend', frames, 'red hold end');
 					}
 
 					scale.set(event.noteScale, event.noteScale);

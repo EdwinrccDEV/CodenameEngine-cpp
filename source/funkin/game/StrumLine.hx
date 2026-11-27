@@ -148,6 +148,8 @@ class StrumLine extends FlxTypedGroup<Strum> {
 	public function generate(strumLine:ChartStrumLine, ?startTime:Float) {
 		// TODO: implement double generate call support if needed
 
+		var __loadStart:Float = haxe.Timer.stamp();
+
 		var total = 0;
 		if (strumLine.notes != null) for(note in strumLine.notes) {
 			if (startTime != null && startTime > note.time)
@@ -170,18 +172,31 @@ class StrumLine extends FlxTypedGroup<Strum> {
 
 		var prev:Note = null;
 
+		// Las notas del chart ya vienen en orden de tiempo y los pedazos de sustain se
+		// generan tambien en orden creciente, asi que el array queda igual que lo dejaria
+		// `sortNotes()`. Solo se ordena si el chart rompe ese orden, para no pagar un
+		// sort con closure sobre miles de notas al cargar.
+		var __ordered:Bool = true;
+		var __lastTime:Float = Math.NEGATIVE_INFINITY;
+
 		if (strumLine.notes != null) for(note in strumLine.notes) {
 			if (startTime != null && startTime > note.time)
 				continue;
 
-			notes.members[total-(il++)-1] = prev = new Note(this, note, false, prev);
+			var __head:Note = new Note(this, note, false, prev);
+			if (__head.strumTime <= __lastTime) __ordered = false;
+			else __lastTime = __head.strumTime;
+			notes.members[total-(il++)-1] = prev = __head;
 
 			if (note.sLen > Conductor.stepCrochet * 0.75) {
 				var len:Float = note.sLen;
 				var curLen:Float = 0;
 				while(len > 10) {
 					curLen = Math.min(len, Conductor.stepCrochet);
-					notes.members[total-(il++)-1] = prev = new Note(this, note, true, curLen, note.sLen - len, prev);
+					var __tail:Note = new Note(this, note, true, curLen, note.sLen - len, prev);
+					if (__tail.strumTime <= __lastTime) __ordered = false;
+					else __lastTime = __tail.strumTime;
+					notes.members[total-(il++)-1] = prev = __tail;
 					len -= curLen;
 
 					if (prev != null && prev.sustainParent != null)
@@ -189,7 +204,9 @@ class StrumLine extends FlxTypedGroup<Strum> {
 				}
 			}
 		}
-		notes.sortNotes();
+		if (!__ordered) notes.sortNotes();
+
+		if (total > 0) Logs.infos('[load] notes strumLine $ID: $total objects in ${Std.int((haxe.Timer.stamp() - __loadStart) * 1000)} ms', CYAN);
 
 		var scrollSpeed = strumLine.scrollSpeed;
 		if(scrollSpeed == null) if (PlayState.instance != null) scrollSpeed = PlayState.instance.scrollSpeed;
