@@ -198,28 +198,22 @@ static int readSample(const unsigned char *data, int pos, int bytesPerSample)
 		int end = (int)endFrames->__get(i) * frameSize;
 		if (end > pcmLength) end = pcmLength;
 
-		int highest = 0, lowest = 0;
-		bool any = false;
+		// Pico absoluto de la ventana. (max - min) daba el doble del pico real, asi
+		// que casi cualquier master quedaba clampeado a 1 y la waveform salia plana.
+		// long long para no desbordar con muestras de 32 bits.
+		long long peak = 0;
 		int pos = start;
 
 		while (pos + bytesPerSample <= end)
 		{
 			const int value = readSample(data, pos, bytesPerSample);
-			if (!any)
-			{
-				highest = lowest = value;
-				any = true;
-			}
-			else
-			{
-				if (value > highest) highest = value;
-				if (value < lowest) lowest = value;
-			}
+			const long long magnitude = value < 0 ? -(long long)value : (long long)value;
+			if (magnitude > peak) peak = magnitude;
 
 			pos += frameSize;
 		}
 
-		result->push(any ? (Float)((highest - lowest) * scale) : 0.0);
+		result->push((Float)(peak * scale));
 	}
 
 	return result;

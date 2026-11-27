@@ -90,8 +90,8 @@ class NativeOps
 	 * Amplitud de varias ventanas de un PCM ya decodificado.
 	 *
 	 * `startFrames`/`endFrames` son indices de frame (no de byte) y el resultado
-	 * usa el mismo criterio que `AudioAnalyzer.analyze`:
-	 * `(max - min) / (1 << (bitsPerSample - 1))`, una amplitud por ventana.
+	 * es el pico absoluto de cada ventana, `max(|muestra|) / (1 << (bitsPerSample - 1))`,
+	 * de 0 a 1.
 	 *
 	 * En cpp lo resuelve `EngineNative::audioAmplitudes` en un solo recorrido, sin
 	 * crear objetos Haxe dentro del bucle; en el resto de targets usa
@@ -129,28 +129,19 @@ class NativeOps
 			var end:Int = endFrames[i] * frameSize;
 			if (end > limit) end = limit;
 
-			var highest:Int = 0, lowest:Int = 0, any:Bool = false;
+			var peak:Int = 0;
 			var pos:Int = start;
 
 			while (pos + bytesPerSample <= end)
 			{
 				var value:Int = readSample(pcm, pos, bytesPerSample);
-
-				if (!any)
-				{
-					highest = lowest = value;
-					any = true;
-				}
-				else
-				{
-					if (value > highest) highest = value;
-					if (value < lowest) lowest = value;
-				}
+				if (value < 0) value = -value;
+				if (value > peak) peak = value;
 
 				pos += frameSize;
 			}
 
-			out.push(any ? (highest - lowest) * scale : 0.0);
+			out.push(peak * scale);
 		}
 
 		return out;

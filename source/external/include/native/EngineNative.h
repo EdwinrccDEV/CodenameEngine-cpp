@@ -40,8 +40,8 @@ public:
 	 * `external-native` no tiene en el include path los headers que hxcpp genera
 	 * (por eso no se puede declarar `::haxe::io::Bytes` aca),
 	 * `startFrames`/`endFrames` son indices de frame (no de byte). Devuelve una
-	 * amplitud por ventana, en el mismo orden, con el mismo criterio que
-	 * `AudioAnalyzer.analyze`: (max - min) / (1 << (bits-1)).
+	 * amplitud por ventana, en el mismo orden: el pico absoluto de la ventana,
+	 * max(|muestra|) / (1 << (bits-1)), de 0 a 1.
 	 * Una ventana sin muestras (o un PCM invalido) devuelve 0.
 	 */
 	static ::Array<Float> audioAmplitudes(::Array<unsigned char> pcm, int bitsPerSample, int channels,

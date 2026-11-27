@@ -19,24 +19,31 @@ uniform float pixelOffset;
 uniform float playerPosition;
 
 uniform sampler2D waveformTexture;
-uniform ivec2 waveformSize;
+uniform vec2 waveformSize;
 
 uniform bool lowDetail;
 
 uniform float time;
 
+// Cada texel de la textura guarda 3 muestras seguidas, una por canal (R, G, B),
+// asi que la celda y el canal salen del indice de muestra, no del texel.
+float getSample(float cell) {
+	float id = clamp(floor(cell), 0.0, waveformSize.x * waveformSize.y - 1.0);
+	vec2 wavePixel = vec2(mod(id, waveformSize.x), floor(id / waveformSize.x));
+	vec4 waveData = texture2D(waveformTexture, (wavePixel + 0.5) / waveformSize);
+
+	float channel = mod(id, 3.0);
+	if (channel < 1.0) return waveData.r;
+	if (channel < 2.0) return waveData.g;
+	return waveData.b;
+}
+
 float getAmplitude(vec2 pixel) {
-	float pixelID = floor((pixel.y+pixelOffset)/3.0);
-
-	// TODO: INVESTIGATE THE 1.+ AND WHY IT WORKS (SRSLY I GOT NO CLUE) -lunar
-	vec2 wavePixel = vec2(mod(pixelID,waveformSize.x), 1.0+floor(pixelID/waveformSize.x));
-	vec4 waveData = texture2D(waveformTexture, wavePixel / waveformSize);
-
-	int id = int(mod(wavePixel.x, 3.0));
-	if(id == 0) return waveData.r;
-	if(id == 1) return waveData.g;
-	if(id == 2) return waveData.b;
-	return 0.0;
+	// Cada muestra ocupa 3 unidades de alto y esta centrada en 3k+1.5; se
+	// interpola entre las dos vecinas para que la onda no salga escalonada.
+	float cell = max((pixel.y + pixelOffset) / 3.0 - 0.5, 0.0);
+	float base = floor(cell);
+	return mix(getSample(base), getSample(base + 1.0), cell - base);
 }
 
 float getAmpWidth(float amplitude) {

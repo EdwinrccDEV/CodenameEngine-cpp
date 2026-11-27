@@ -489,7 +489,9 @@ final class AudioAnalyzer {
 	/**
 	 * Analiza varias ventanas de una vez y devuelve una amplitud por ventana.
 	 * `startFrames`/`endFrames` son indices de frame (no de byte) y el resultado
-	 * equivale a llamar `analyze` ventana por ventana.
+	 * es el pico absoluto de cada ventana (max |muestra|, de 0 a 1), que es lo que
+	 * sirve para dibujar una waveform: con (max - min) todo master fuerte queda
+	 * clampeado a 1 y la onda se ve como un bloque plano.
 	 *
 	 * En cpp lo resuelve el modulo nativo en un solo recorrido del PCM; si el
 	 * sonido no tiene PCM en RAM (streaming) o el target no es cpp, cae en
@@ -504,8 +506,18 @@ final class AudioAnalyzer {
 		if (pcm != null) return NativeOps.audioAmplitudes(pcm, data.bitsPerSample, data.channels, startFrames, endFrames);
 		#end
 
+		// Mismo criterio que el modulo nativo: pico absoluto de la ventana.
 		var out:Array<Float> = [];
-		for (i in 0...startFrames.length) out.push(analyze(startFrames[i], endFrames[i], SAMPLE));
+		var peak:Float;
+		for (i in 0...startFrames.length) {
+			peak = 0;
+			read(startFrames[i], endFrames[i], SAMPLE, function(b:Int, c:Int) {
+				var value:Float = b / byteSize;
+				if (value < 0) value = -value;
+				if (value > peak) peak = value;
+			});
+			out.push(peak);
+		}
 		return out;
 	}
 

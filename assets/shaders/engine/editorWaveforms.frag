@@ -36,19 +36,25 @@ float catmullRom(
 	);
 }
 
+// Cada texel de la textura guarda 3 muestras seguidas, una por canal (R, G, B),
+// asi que la celda y el canal salen del indice de muestra, no del texel.
+float getSample(float cell) {
+	float id = clamp(floor(cell), 0.0, waveformSize.x * waveformSize.y - 1.0);
+	vec2 wavePixel = vec2(mod(id, waveformSize.x), floor(id / waveformSize.x));
+	vec4 waveData = texture2D(waveformTexture, (wavePixel + 0.5) / waveformSize);
+
+	float channel = mod(id, 3.0);
+	if (channel < 1.0) return waveData.r;
+	if (channel < 2.0) return waveData.g;
+	return waveData.b;
+}
+
 float getAmplitude(vec2 pixel) {
-	float pixelID = floor((pixel.y+pixelOffset)/3.0);
-
-	// TODO: INVESTIGATE THE 1.+ AND WHY IT WORKS (SRSLY I GOT NO CLUE) -lunar
-	// Somehow using 0.999 instead of 1.0 fixes weird glitches on some systems -Ne_Eo
-	vec2 wavePixel = vec2(mod(pixelID, waveformSize.x), 0.999+floor(pixelID/waveformSize.x));
-	vec4 waveData = texture2D(waveformTexture, wavePixel / waveformSize);
-
-	int id = int(mod(wavePixel.x, 3.0));
-	if(id == 0) return waveData.r;
-	if(id == 1) return waveData.g;
-	if(id == 2) return waveData.b;
-	return 0.0;
+	// Cada muestra ocupa 3 unidades de alto y esta centrada en 3k+1.5; se
+	// interpola entre las dos vecinas para que la onda no salga escalonada.
+	float cell = max((pixel.y + pixelOffset) / 3.0 - 0.5, 0.0);
+	float base = floor(cell);
+	return mix(getSample(base), getSample(base + 1.0), cell - base);
 }
 
 float getAmpWidth(float amplitude) {
@@ -58,6 +64,13 @@ float getAmpWidth(float amplitude) {
 bool inWaveForm(vec2 pixel, float width) {
 	float widthdiv2 = width/2.0;
 	return pixel.x > widthdiv2 && pixel.x < textureRes.x-widthdiv2;
+}
+
+// Cobertura del pixel dentro de la onda, con 1 unidad de antialias en los bordes.
+float waveCoverage(vec2 pixel, float width) {
+	float widthdiv2 = width/2.0;
+	float distanceToEdge = min(pixel.x - widthdiv2, (textureRes.x - widthdiv2) - pixel.x);
+	return clamp(distanceToEdge + 0.5, 0.0, 1.0);
 }
 
 float getHighlight(float ampWidth) {
@@ -74,7 +87,7 @@ void outlineWaveform(vec2 pixel, vec2 offset) {
 		gl_FragColor -= outlineColor*mix(0.5, 0.8, amplitude);
 }
 
-void highDetailWaveform(vec2 pixel, float amplitude, float ampWidth) {
+void highDetailWaveform(vec2 pixel, float amplitude, float ampWidth, float coverage) {
 	vec3 gradientColor = mix(gradient1, gradient2, openfl_TextureCoordv.x);
 	gradientColor *= pixel.y+pixelOffset>playerPosition ? 0.7 : 1.0;
 	gradientColor = mix(gradientColor, gradientColor * vec3(1.8), map(getHighlight(amplitude), 0.0, 1.0, 0.5, 1.0));
@@ -83,14 +96,16 @@ void highDetailWaveform(vec2 pixel, float amplitude, float ampWidth) {
 	if (inWaveForm(pixel, ampWidthHighlight))
 		gradientColor = mix(gradientColor, gradientColor * vec3(1.8), map(getHighlight(ampWidthHighlight), 0.0, 1.0, 0.5, 1.0));
 
-	gl_FragColor = vec4(vec3(gradientColor * mix(0.5, 0.8, amplitude))*openfl_Alphav, openfl_Alphav);
+	float alpha = openfl_Alphav * coverage;
+	gl_FragColor = vec4(vec3(gradientColor * mix(0.5, 0.8, amplitude)) * alpha, alpha);
 
 	outlineWaveform(pixel, vec2(0.0, -1.0));
 	outlineWaveform(pixel, vec2(0.0, 1.0));
 }
 
-void lowDetailWaveform(vec2 pixel, float amplitude, float ampWidth) {
-	gl_FragColor = vec4(lowDetailCol * (pixel.y+pixelOffset>playerPosition ? 0.7 : 1.0), 1.0);
+void lowDetailWaveform(vec2 pixel, float amplitude, float ampWidth, float coverage) {
+	float alpha = openfl_Alphav * coverage;
+	gl_FragColor = vec4(lowDetailCol * (pixel.y+pixelOffset>playerPosition ? 0.7 : 1.0) * alpha, alpha);
 }
 
 void main()
@@ -98,10 +113,11 @@ void main()
 	vec2 pixel = openfl_TextureCoordv * textureRes;
 	float amplitude = getAmplitude(pixel);
 	float ampWidth = getAmpWidth(amplitude);
+	float coverage = waveCoverage(pixel, ampWidth);
 
 	gl_FragColor = vec4(0.0);
-	if (!inWaveForm(pixel, ampWidth)) return;
+	if (coverage <= 0.0) return;
 
-	if (lowDetail) lowDetailWaveform(pixel, amplitude, ampWidth);
-	else highDetailWaveform(pixel, amplitude, ampWidth);
+	if (lowDetail) lowDetailWaveform(pixel, amplitude, ampWidth, coverage);
+	else highDetailWaveform(pixel, amplitude, ampWidth, coverage);
 }
