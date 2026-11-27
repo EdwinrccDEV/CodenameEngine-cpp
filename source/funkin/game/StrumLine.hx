@@ -142,6 +142,9 @@ class StrumLine extends FlxTypedGroup<Strum> {
 		}
 	}
 
+	/** Ya se midio la primera nota de la sesion (la que paga la carga de atlas + splash). */
+	private static var __firstNoteTimed:Bool = false;
+
 	/**
 	 * Generates the notes for the strumline.
 	**/
@@ -183,7 +186,12 @@ class StrumLine extends FlxTypedGroup<Strum> {
 			if (startTime != null && startTime > note.time)
 				continue;
 
+			var __noteStart:Float = __firstNoteTimed ? 0 : haxe.Timer.stamp();
 			var __head:Note = new Note(this, note, false, prev);
+			if (!__firstNoteTimed) {
+				__firstNoteTimed = true;
+				Logs.infos('[load] first note (atlas + splash warmup): ${Std.int((haxe.Timer.stamp() - __noteStart) * 1000)} ms', CYAN);
+			}
 			if (__head.strumTime <= __lastTime) __ordered = false;
 			else __lastTime = __head.strumTime;
 			notes.members[total-(il++)-1] = prev = __head;

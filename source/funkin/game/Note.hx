@@ -241,8 +241,9 @@ class Note extends FlxSprite
 			}
 		}
 
-		updateHitbox();
-
+		// Un solo updateHitbox por nota: en los pedazos de sustain el hitbox se
+		// recalculaba justo antes de `play('holdend')` y otra vez despues, con el
+		// mismo frame, asi que solo se hace el segundo (el que ya usa el frame final).
 		if (isSustainNote && prevNote != null)
 		{
 			alpha = 0.6;
@@ -256,6 +257,7 @@ class Note extends FlxSprite
 				prevNote.animation.play('hold');
 			}
 		} else {
+			updateHitbox();
 			animation.play("scroll");
 		}
 

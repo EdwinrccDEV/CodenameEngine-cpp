@@ -17,11 +17,13 @@ class SplashHandler extends FlxTypedGroup<Splash> {
 	 * @param path Path to the splashes XML (`Paths.xml('splashes/splash')`)
 	 */
 	public function getSplashGroup(name:String) {
-		if (!grpMap.exists(name)) {
-			var grp = new SplashGroup(Paths.xml('splashes/$name'));
+		// Una sola busqueda en el mapa: esto se llama una vez por nota al cargar el chart.
+		var grp:SplashGroup = grpMap.get(name);
+		if (grp == null) {
+			grp = new SplashGroup(Paths.xml('splashes/$name'));
 			grpMap.set(name, grp);
 		}
-		return grpMap.get(name);
+		return grp;
 	}
 
 	public override function destroy() {
